@@ -13,37 +13,13 @@ def compute_bounding_box(I):
     top left corner and the row and column index of the bottom right corner (in
     that order).
     '''
-    height, width = np.shape(I)
 
-    stack = []
+    I = np.array(I)
+    redCoords = list(zip(*np.where(I == 2)))
+    blackCoords = list(zip(*np.where(I == 1)))
 
-    for y in range(height):
-        for x in range(width):
-            value = I[y][x]
-            if (value == 2):
-                stack.append((y, x))
-                left = x
-                right = x
-                top = y
-                bottom = y
-                while stack:
-                    new = stack.pop()
-                    newY, newX = new[0], new[1]
-                    I[newY][newX] = 0
-                    for i in range(-1, 1):
-                        for j in range(-1, 1):
-                            if (newY + i >= 0 and newY + i < height and newX + j >= 0 and newX + j < width and
-                                    I[newY + i][newX + j] == 2):
-                                stack.append((newY + i, newX + j))
-                    if (newX + 1 > right):
-                        right = newX + 1
-                    if (newY + 1 > bottom):
-                        bottom = newY + 1
-                    if (newX - 1 < left):
-                        left = newX - 1
-                    if (newY - 1 < top):
-                        top = newY - 1
-                print(left, right, top, bottom)
+    sorted(redCoords, key=lambda element: (redCoords[0], redCoords[1]))
+    sorted(blackCoords, key=lambda element: (blackCoords[0], blackCoords[1]))
 
 
 def detect_black_and_red(I):
@@ -55,6 +31,7 @@ def detect_black_and_red(I):
     pixel as red or approximately red. All other pixels are indicated
     with a '0'.
     '''
+
     height, width, channels = np.shape(I)
     newI = [[0 for x in range(width)] for y in range(height)]
 
