@@ -14,12 +14,53 @@ def compute_bounding_box(I):
     that order).
     '''
 
+    height, width = np.shape(I)
     I = np.array(I)
     redCoords = list(zip(*np.where(I == 2)))
     blackCoords = list(zip(*np.where(I == 1)))
 
-    sorted(redCoords, key=lambda element: (redCoords[0], redCoords[1]))
-    sorted(blackCoords, key=lambda element: (blackCoords[0], blackCoords[1]))
+    redCoords = sorted(redCoords, key=lambda element: (redCoords[0], redCoords[1]))
+    blackCoords = sorted(blackCoords, key=lambda element: (blackCoords[0], blackCoords[1]))
+
+    coords = []
+    if (len(redCoords) == 0):
+        return []
+    left, top = redCoords[0]
+    minLeft, minTop, maxRight, maxBottom = left, top, left, top
+    i = 1
+    while (i < len(redCoords) - 1):
+        right, bottom = redCoords[i]
+        if ((right > left + 3) and (bottom > top + 3)):
+            maxRight = right
+            maxBottom = bottom
+            if (maxRight < minLeft):
+                temp = minLeft
+                minLeft = maxRight
+                maxRight = temp
+            if (maxBottom < minTop):
+                temp = minTop
+                minTop = maxBottom
+                maxBottom = temp
+            coords.append([int(minLeft), int(minTop), int(maxRight), int(maxBottom)])
+            left, top = redCoords[i + 1]
+            minLeft, minTop, maxRight, maxBottom = left, top, left, top
+        else:
+            left = right
+            top = bottom
+        i += 1
+
+    for box in coords:
+        left, top, right, bottom = box
+        for i in range(-2, 2):
+            for j in range(-2, 2):
+                if (
+                        0 <= left + i < width and 0 <= right + i < width and 0 <= top + j < height and 0 <= bottom + j < height):
+                    if (I[left + i][top + j] == 0 or I[right + i][top + j] == 0 or I[left + i][bottom + j] == 0 or
+                            I[right + i][bottom + j] == 0):
+                        if box in coords:
+                            coords.remove(box)
+
+    return coords
 
 
 def detect_black_and_red(I):
@@ -68,7 +109,7 @@ def detect_red_light(I):
     bounding_boxes = []  # This should be a list of lists, each of length 4. See format example below.
 
     newI = detect_black_and_red(I)
-    compute_bounding_box(newI)
+    bounding_boxes = compute_bounding_box(newI)
 
     for i in range(len(bounding_boxes)):
         assert len(bounding_boxes[i]) == 4
@@ -90,8 +131,7 @@ file_names = sorted(os.listdir(data_path))
 file_names = [f for f in file_names if '.jpg' in f]
 
 preds = {}
-# for i in range(len(file_names)):
-for i in range(1):
+for i in range(len(file_names)):
     # read image using PIL:
     I = Image.open(os.path.join(data_path, file_names[i]))
 
