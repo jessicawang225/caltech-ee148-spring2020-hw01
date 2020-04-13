@@ -1,4 +1,4 @@
-import os
+# import os
 import numpy as np
 import json
 from PIL import Image
@@ -19,47 +19,84 @@ def compute_bounding_box(I):
     redCoords = list(zip(*np.where(I == 2)))
     blackCoords = list(zip(*np.where(I == 1)))
 
+    if (len(redCoords) == 0 or len(redCoords) == 1):
+        return []
+
     redCoords = sorted(redCoords, key=lambda element: (redCoords[0], redCoords[1]))
     blackCoords = sorted(blackCoords, key=lambda element: (blackCoords[0], blackCoords[1]))
 
     coords = []
-    if (len(redCoords) == 0):
-        return []
-    left, top = redCoords[0]
-    minLeft, minTop, maxRight, maxBottom = left, top, left, top
     i = 1
-    while (i < len(redCoords) - 1):
-        right, bottom = redCoords[i]
-        if ((right > left + 3) and (bottom > top + 3)):
-            maxRight = right
-            maxBottom = bottom
-            if (maxRight < minLeft):
-                temp = minLeft
-                minLeft = maxRight
-                maxRight = temp
-            if (maxBottom < minTop):
-                temp = minTop
-                minTop = maxBottom
-                maxBottom = temp
-            coords.append([int(minLeft), int(minTop), int(maxRight), int(maxBottom)])
-            left, top = redCoords[i + 1]
-            minLeft, minTop, maxRight, maxBottom = left, top, left, top
+    widths = set()
+    heights = set()
+    widths.add(redCoords[0][0])
+    heights.add(redCoords[0][1])
+    while (i < len(redCoords)):
+        x, y = redCoords[i]
+        if ((x > max(widths) + 1 or x < min(widths) - 1) and (y > max(heights) + 1 or y < min(heights) - 1)):
+            left = min(widths)
+            top = min(heights)
+            right = max(widths)
+            bottom = max(heights)
+            if (abs(left - right) > 3 or abs(top - bottom) > 3):
+                coords.append([int(left), int(top), int(right), int(bottom)])
+            widths = set()
+            heights = set()
+            widths.add(redCoords[i][0])
+            heights.add(redCoords[i][1])
         else:
-            left = right
-            top = bottom
+            widths.add(x)
+            heights.add(y)
         i += 1
 
-    for box in coords:
+    coordsCopy = coords[:]
+    for box in coordsCopy:
         left, top, right, bottom = box
-        for i in range(-2, 2):
-            for j in range(-2, 2):
+        if ((right - left) >= 3 * (bottom - top) or (bottom - top) >= 3 * (right - left)):
+            if box in coords:
+                coords.remove(box)
+        for i in range(-1, 1):
+            for j in range(-1, 1):
                 if (
                         0 <= left + i < width and 0 <= right + i < width and 0 <= top + j < height and 0 <= bottom + j < height):
-                    if (I[left + i][top + j] == 0 or I[right + i][top + j] == 0 or I[left + i][bottom + j] == 0 or
+                    if (I[left + i][top + j] == 0 and I[right + i][top + j] == 0 and I[left + i][bottom + j] == 0 and
                             I[right + i][bottom + j] == 0):
                         if box in coords:
                             coords.remove(box)
 
+    '''
+    coordsCopy = coords[:]
+    for box in coordsCopy:
+        left, top, right, bottom = box
+        zeroI = 0
+        for i in range(-1, 2):
+            zeroJ = 0
+            if (I[left+i][top] == 0):
+                zeroI += 1
+            if (I[right+i][top] == 0):
+                zeroI += 1
+            if (I[left+i][bottom] == 0):
+                zeroI += 1
+            if (I[right+i][bottom] == 0):
+                zeroI += 1
+            for j in range(-1,2):
+                if (0 <= left+i < width and 0 <= right+i < width and 0 <= top+j < height and 0 <= bottom+j < height):
+                    if (I[left][top+j] == 0):
+                        zeroJ += 1
+                    if (I[right][top+j] == 0):
+                        zeroJ += 1
+                    if (I[left][bottom+j] == 0):
+                        zeroJ += 1
+                    if (I[right][bottom+j] == 0):
+                        zeroJ += 1
+                if zeroJ >= 2:
+                    if box in coords:
+                        coords.remove(box)
+            if zeroI >= 2:
+                if box in coords:
+                    coords.remove(box)
+
+    '''
     return coords
 
 
@@ -74,19 +111,21 @@ def detect_black_and_red(I):
     '''
 
     height, width, channels = np.shape(I)
-    newI = [[0 for x in range(width)] for y in range(height)]
+    newI = [[0 for y in range(height)] for x in range(width)]
 
-    for y in range(height):
-        for x in range(width):
-            r = I[y, x, 0]
-            g = I[y, x, 1]
-            b = I[y, x, 2]
-            # Check if the pixel color is black or approximately black
-            if (r < 60 and g < 60 and b < 60):
-                newI[y][x] = 1
+    for x in range(width):
+        for y in range(height):
+            r = int(I[y, x, 0])
+            g = int(I[y, x, 1])
+            b = int(I[y, x, 2])
             # Check if the pixel color is red or approximately red
-            if (r >= 2.5 * g and r >= 2.5 * b):
-                newI[y][x] = 2
+            if (((r > 2.5 * g and r > 2.5 * b))):
+                newI[x][y] = 2
+            # Check if the pixel color is black or approximately black
+            elif (r < 70 and g < 70 and b < 70):
+                newI[x][y] = 1
+            else:
+                newI[x][y] = 0
 
     return newI
 
@@ -105,8 +144,6 @@ def detect_red_light(I):
     I[:,:,1] is the green channel
     I[:,:,2] is the blue channel
     '''
-
-    bounding_boxes = []  # This should be a list of lists, each of length 4. See format example below.
 
     newI = detect_black_and_red(I)
     bounding_boxes = compute_bounding_box(newI)
@@ -132,6 +169,8 @@ file_names = [f for f in file_names if '.jpg' in f]
 
 preds = {}
 for i in range(len(file_names)):
+    if (i % 5 == 0):
+        print('Red light image detection completed for : {}/{} images'.format(i, len(file_names)))
     # read image using PIL:
     I = Image.open(os.path.join(data_path, file_names[i]))
 
