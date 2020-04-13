@@ -19,26 +19,27 @@ def compute_bounding_box(I):
     redCoords = list(zip(*np.where(I == 2)))
     blackCoords = list(zip(*np.where(I == 1)))
 
-    if (len(redCoords) == 0 or len(redCoords) == 1):
+    if len(redCoords) == 0 or len(redCoords) == 1:
         return []
 
     redCoords = sorted(redCoords, key=lambda element: (redCoords[0], redCoords[1]))
     blackCoords = sorted(blackCoords, key=lambda element: (blackCoords[0], blackCoords[1]))
 
+    # Determine the coordinates of the bounding box
     coords = []
     i = 1
     widths = set()
     heights = set()
     widths.add(redCoords[0][0])
     heights.add(redCoords[0][1])
-    while (i < len(redCoords)):
+    while i < len(redCoords):
         x, y = redCoords[i]
-        if ((x > max(widths) + 1 or x < min(widths) - 1) and (y > max(heights) + 1 or y < min(heights) - 1)):
+        if (x > max(widths) + 1 or x < min(widths) - 1) and (y > max(heights) + 1 or y < min(heights) - 1):
             left = min(widths)
             top = min(heights)
             right = max(widths)
             bottom = max(heights)
-            if (abs(left - right) > 3 or abs(top - bottom) > 3):
+            if abs(left - right) > 3 or abs(top - bottom) > 3:
                 coords.append([int(left), int(top), int(right), int(bottom)])
             widths = set()
             heights = set()
@@ -52,51 +53,18 @@ def compute_bounding_box(I):
     coordsCopy = coords[:]
     for box in coordsCopy:
         left, top, right, bottom = box
-        if ((right - left) >= 3 * (bottom - top) or (bottom - top) >= 3 * (right - left)):
+        # The bounding box of a red light should be square-like
+        if (right - left) >= 3 * (bottom - top) or (bottom - top) >= 3 * (right - left):
             if box in coords:
                 coords.remove(box)
+        # Traffic lights boxes are typically black so check that the outer edges of the bounding box are black
         for i in range(-1, 1):
             for j in range(-1, 1):
-                if (
-                        0 <= left + i < width and 0 <= right + i < width and 0 <= top + j < height and 0 <= bottom + j < height):
+                if 0 <= left + i < width and 0 <= right + i < width and 0 <= top + j < height and 0 <= bottom + j < height:
                     if (I[left + i][top + j] == 0 and I[right + i][top + j] == 0 and I[left + i][bottom + j] == 0 and
                             I[right + i][bottom + j] == 0):
                         if box in coords:
                             coords.remove(box)
-
-    '''
-    coordsCopy = coords[:]
-    for box in coordsCopy:
-        left, top, right, bottom = box
-        zeroI = 0
-        for i in range(-1, 2):
-            zeroJ = 0
-            if (I[left+i][top] == 0):
-                zeroI += 1
-            if (I[right+i][top] == 0):
-                zeroI += 1
-            if (I[left+i][bottom] == 0):
-                zeroI += 1
-            if (I[right+i][bottom] == 0):
-                zeroI += 1
-            for j in range(-1,2):
-                if (0 <= left+i < width and 0 <= right+i < width and 0 <= top+j < height and 0 <= bottom+j < height):
-                    if (I[left][top+j] == 0):
-                        zeroJ += 1
-                    if (I[right][top+j] == 0):
-                        zeroJ += 1
-                    if (I[left][bottom+j] == 0):
-                        zeroJ += 1
-                    if (I[right][bottom+j] == 0):
-                        zeroJ += 1
-                if zeroJ >= 2:
-                    if box in coords:
-                        coords.remove(box)
-            if zeroI >= 2:
-                if box in coords:
-                    coords.remove(box)
-
-    '''
     return coords
 
 
@@ -119,10 +87,10 @@ def detect_black_and_red(I):
             g = int(I[y, x, 1])
             b = int(I[y, x, 2])
             # Check if the pixel color is red or approximately red
-            if (((r > 2.5 * g and r > 2.5 * b))):
+            if r > 2.5 * g and r > 2.5 * b:
                 newI[x][y] = 2
             # Check if the pixel color is black or approximately black
-            elif (r < 70 and g < 70 and b < 70):
+            elif r < 70 and g < 70 and b < 70:
                 newI[x][y] = 1
             else:
                 newI[x][y] = 0
@@ -169,7 +137,7 @@ file_names = [f for f in file_names if '.jpg' in f]
 
 preds = {}
 for i in range(len(file_names)):
-    if (i % 5 == 0):
+    if i % 5 == 0:
         print('Red light image detection completed for : {}/{} images'.format(i, len(file_names)))
     # read image using PIL:
     I = Image.open(os.path.join(data_path, file_names[i]))
